@@ -2,7 +2,7 @@
 
 A machine learning framework based on Keras
 
-## Install virtual environment 
+## Install virtual environment (only needed in the first time)
 
 ```
 git clone https://github.com/heymanwasup/KerasML
@@ -10,7 +10,7 @@ cd KerasML
 source install.sh
 ```
 
-### First time setup on lxplus
+### Each time setup on lxplus
 
 ```
 source setup.sh
