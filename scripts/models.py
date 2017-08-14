@@ -25,11 +25,22 @@ def model_2_1(ndim):
 
 def model_2_2(ndim):
     m_in = Input(shape=(ndim,))
-    m = Dense(32)(m_in)
+    m = Dense(16)(m_in)
     m = Activation('relu')(m)
     m = Dropout(0.2)(m)
     m = Dense(1)(m)
-    m_out = Activation('softmax')(m)
+    m_out = Activation('sigmoid')(m)
+
+    model = Model(inputs=m_in, outputs=m_out)
+    return model
+
+def model_2_3(ndim):
+    m_in = Input(shape=(ndim,))
+    m = Dense(64)(m_in)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(1)(m)
+    m_out = Activation('sigmoid')(m)
 
     model = Model(inputs=m_in, outputs=m_out)
     return model

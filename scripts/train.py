@@ -45,7 +45,10 @@ def main(category=0, runtag='test'):
 #  cfg = get_cfg(category,runtag,load_data=True,model_name='4_0',scale=True) #test_4.0.1
 #  cfg = get_cfg(category,runtag,load_data=True,model_name='5_0',scale=True) #test_5.0.1
 #  cfg = get_cfg(category,runtag,load_data=True,model_name='6_0',scale=True) #test_6.0.1
-  cfg = get_cfg(category,runtag,load_data=True,model_name='2_0',scale=True) #test_2.0.1  retry shallow, scale 
+#  cfg = get_cfg(category,runtag,load_data=True,model_name='2_0',scale=True) #test_2.0.1  retry shallow, scale 
+#  cfg = get_cfg(category,runtag,load_data=True,model_name='2_1',scale=True) #test_2.1.1 softmax 
+#  cfg = get_cfg(category,runtag,load_data=True,model_name='2_2',scale=True) #test_2.2.1 signoid, dense 64
+  cfg = get_cfg(category,runtag,load_data=True,model_name='2_3',scale=True) #test_2.3.1 signoid, dense 32
   print ('start training on {0:} {1:}'.format(cfg.runtag,cfg.train_tag))
   train( cfg )
   return

@@ -18,16 +18,17 @@ def get_cfg(category,runtag,load_data=True,model_name='2_0',scale=True):
     'test_4.0.1':['4_0',True],
     'test_5.0.1':['5_0',True],
     'test_6.0.1':['6_0',True],
+    'test_2.0.1':['2_0',True],
+    'test_2.1.1':['2_1',True],
+    'test_2.2.1':['2_2',True],
+    'test_2.3.1':['2_3',True],
   }
 
-  print '1'
   if runtag in runtag_to_mode:
-    print '2'
     model_name = runtag_to_mode[runtag][0]
     scale      = runtag_to_mode[runtag][1]
 
 
-  print '3'
   cfg = Cfg(category, runtag)
   cfg.model = 'model_{0:}'.format(model_name)
   cfg.scale = scale
