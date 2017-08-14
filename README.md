@@ -17,13 +17,15 @@ source setup.sh
 ```
 
 ## Training model
-The model structures are wrote in the `scripts/models.py`, user need to chose one of them during training
+The model structures are wrote in the `scripts/models.py`, user need to chose one of them before lauching the training. 
 ```
 python ./scripts/train.py [-options]
 [-p or --parallel:  training parallelly in 4 categories (2/3 jet cross even/odd)] 
 [-c <category>:     specify the training category, should be 0~3]
 [-r <runtag>:       runtag is a unique str corresponds to this training]
 ```
+The model structure defined at `scripts/models.py` with `Keras functional API (https://keras.io/getting-started/functional-api-guide/)`
+
 
 ## Test model 
 
@@ -44,3 +46,5 @@ python scripts/read_weight.py [-options]
 [-c <category>:      specify the training category, should be 0~3]
 [-r <runtag>:        runtag is a unique str corresponds to this training]
 ```
+
+
