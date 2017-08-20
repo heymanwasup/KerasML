@@ -7,13 +7,11 @@ from Config import *
 import models,utils
 
 def train( cfg ):
-    print ('1')
     cfg.initialize_training()
 
     #train model
     model = getattr(models,cfg.model)(*cfg.args_model)
     model.summary()
-    print ('1')
 
     model.compile(optimizer=cfg.optimizer, loss=cfg.loss, metrics=cfg.metrics)
     stop = EarlyStopping(monitor='val_loss', patience=10,mode='auto')
