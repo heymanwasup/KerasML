@@ -1,8 +1,30 @@
-from functools import partial
+from __future__ import print_function
+from multiprocessing import Pool
+from functools import partial,wraps
 import json
-import os,pickle,argparse
+import os,pickle,argparse,sys
 
+def composer(f):
+  def compose(g):
+    @wraps(g)
+    def composed(*args,**kw):
+      return  f(g(*args,**kw))
+    return composed
+  return compose
 
+def muter(start,end):
+  def mute(fun):
+    @wraps(fun)
+    def muted(*args,**kw):
+      print(start)
+      stdout, stderr = sys.stdout, sys.stderr
+      sys.stdout, sys.stderr = open('/dev/null','w'), open('/dev/null','w')
+      res = fun(*args,**kw)
+      sys.stdout, sys.stderr = stdout, stderr
+      print(end)
+      return end
+    return muted
+  return mute
 
 def get_parser():
   parser = argparse.ArgumentParser()
@@ -11,113 +33,21 @@ def get_parser():
   parser.add_argument('-p', '--parallel', action='store_true', help='training parallel in 4 categories')
   return parser
 
-def get_cfg(category,runtag,load_data=True,model_name='2_0',scale=True):
-  runtag_to_mode = {
-    'test_2.0.0':['2_0',False],
-    'test_3.0.1':['3_0',True],
-    'test_4.0.1':['4_0',True],
-    'test_5.0.1':['5_0',True],
-    'test_6.0.1':['6_0',True],
-    'test_2.0.1':['2_0',True],
-    'test_2.1.1':['2_1',True],
-    'test_2.2.1':['2_2',True],
-    'test_2.3.1':['2_3',True],
-  }
 
-  if runtag in runtag_to_mode:
-    model_name = runtag_to_mode[runtag][0]
-    scale      = runtag_to_mode[runtag][1]
-
-
-  cfg = Cfg(category, runtag)
-  cfg.model = 'model_{0:}'.format(model_name)
-  cfg.scale = scale
-  if load_data:
-    fill_data(cfg)
-    if cfg.scale:
-      cfg.do_scale(write_scaler=True)
-    cfg.reverse_input()
-  return cfg
-
-
-def zip_arrays(sig,bkg,branches,is_weight=False):
-  import numpy as np
-  cat = np.concatenate((np.ones(len(sig), dtype=np.uint8), np.zeros(len(bkg), dtype=np.uint8)))
-  data = np.concatenate((sig,bkg))
-  splitted = zip(*data)
-
-  Ndata     = len(data[0])
-  Nbranches = len(branches)
-
-  inputs    = {}
-  for n,branch in enumerate(branches):
-    inputs[branch] = np.array(splitted[n])
-
-  if is_weight:
-    if Ndata != Nbranches+1:
-      print ('Weighted! {0:} brs, {1:} found (should be {2:})'.format(Nbranches,Ndata,Nbraches+1))
-      raise ValueError
-    weight = np.array(splitted[Ndata-1])
+def Launch(fun,args,info=''):
+  if args.parallel:
+    P = Pool(4)
+    for n in range(4):
+      P.apply_async(fun,args=(n,args.runtag,))
+    P.close()
+    P.join()
   else:
-    if Ndata != Nbranches:
-      print ('No weight! {0:} in data and {1:} in branches'.format(Nbranches,Ndata))
-      raise ValueError
-    weight = None
-  return inputs,cat,weight
+    runtag = args.runtag
+    category = int(args.category)
+    fun(category, runtag)
+  print('finished this run',info )
 
-def test_data(inputs, cat, weight):
-  print ('inputs:')
-  for key in inputs:
-    print (key,inputs[key][0:5])
-  print ('cat:')
-  print (cat[0:5],'  ||  ',cat[len(cat)-5:len(cat)])
-  print ('weight')
-  print (weight[0:5],'  ||  ',weight[len(weight)-5:len(weight)])
-
-
-def fill_data(cfg,read_pickle=True):
-  p_name = './data/data_{0:}.pickle'.format(cfg.train_tag)
-  if not read_pickle or not os.path.isfile(p_name):
-    get_numpy_array( cfg ) 
-  with open('./data/data_{0:}.pickle'.format(cfg.train_tag)) as f:
-    data = pickle.load(f)
-  paras = data['train'] + data['val'] + data['test']
-  cfg.book_numpy_array(*paras)
-      
-def get_numpy_array( cfg ):
-
-  from root_numpy import root2array
-  if cfg.is_weight:
-    branches = cfg.brs + [cfg.weight_name]
-  else:
-    branches = cfg.brs
- 
-  get_array = partial( root2array,
-      filenames=cfg.input_file, branches = branches)
-  
-  sig_train = get_array(treename=cfg.t_sig_train, selection=cfg.train_sel) 
-  bkg_train = get_array(treename=cfg.t_bkg_train, selection=cfg.train_sel) 
-
-  sig_test  = get_array(treename=cfg.t_sig_test, selection=cfg.test_sel) 
-  bkg_test  = get_array(treename=cfg.t_bkg_test, selection=cfg.test_sel) 
-
-  sig_val,sig_test = np.split(sig_test,[len(sig_test)/2])
-  bkg_val,bkg_test = np.split(bkg_test,[len(bkg_test)/2])
-
-  
-  train,train_cat,train_weight = zip_arrays(sig_train,bkg_train,cfg.brs,cfg.is_weight)
-  val,val_cat,val_weight = zip_arrays(sig_val,bkg_val,cfg.brs,cfg.is_weight)
-  test,test_cat,test_weight = zip_arrays(sig_test,bkg_test,cfg.brs,cfg.is_weight)
-
-  with open('./data/data_{0:}.pickle'.format(cfg.train_tag),'wb') as f:
-    data = {
-      'train':(train,train_cat,train_weight),
-      'val'  :(val,val_cat,val_weight),
-      'test' :(test,test_cat,test_weight),
-    }
-    pickle.dump(data,f) 
-
-
+## begin Cfg ##
 class Cfg:
   def __init__(self,category,runtag='test'):
 
@@ -132,81 +62,171 @@ class Cfg:
     self.scale = True
     self.init_inputs()
     self.init_model()
-   
-  def do_scale(self,write_scaler=True):
-    print ('in do_scale')
-    import utils
-    scalers = utils.getScalers(self.train,self.brs)
-    self.train   = utils.scaleSample(self.train, scalers)
-    self.test    = utils.scaleSample(self.test, scalers)
-    self.val     = utils.scaleSample(self.val, scalers)
-    
-    print ('write_scaler = ',write_scaler)
-    if write_scaler:
-      scale_info = {}
-      for b in self.brs:
-        offset = 0. - scalers[b].mean_
-        scale  = 1./scalers[b].scale_
-        scale_info[b] = {'offset':offset, 'scale':scale}
-      pickle_file = './data/scale_{0:}_{1:}.pickle'.format(self.runtag,self.train_tag)
-      with open(pickle_file,'wb') as f:
-        pickle.dump(scale_info,f)
-      print (pickle_file + 'generated!')
 
-      json_file = './data/scale_{0:}_{1:}.json'.format(self.runtag,self.train_tag)
-      with open(json_file,'w') as f:
-        print >>f,json.dumps(scale_info)
-      print (json_file + 'generated!')
-
-
-  def book_numpy_array(self,
-      train,train_cat,train_weight,
-      val,val_cat,val_weight,
-      test,test_cat,test_weight
-      ):
-    self.train = train
-    self.train_cat = train_cat
-    self.train_weight = train_weight
-
-    self.test = test
-    self.test_cat = test_cat
-    self.test_weight = test_weight
-    
-    self.val = val
-    self.val_cat = val_cat
-    self.val_weight = val_weight
-
-
-  def reverse_input_structure(self,name):
+  def split_arrays(self,sig,bkg,branches,is_weight=False,weight_name=None):
 
     import numpy as np
-    tup = []
-    for br in self.brs:
-      tup.append(getattr(self,name)[br])
-    out = np.array((map(np.array,zip(*tup))))
-    setattr(self,name,out)
- 
+    import ast
+
+    cat = np.concatenate(( np.ones(len(sig), dtype=np.uint8), 
+          np.zeros(len(bkg), dtype=np.uint8) ))
+
+    _data  = np.concatenate((sig,bkg))
+
+    Ndata     = len(_data[0])
+    Nbranches = len(branches)
+
+    data   = _data[branches]
+    if is_weight:
+      assert Ndata == Nbranches+1
+      weight = _data[weight_name]
+    else:
+      assert Ndata == Nbranches
+      weight = None
+    
+    return data,cat,weight
+
+  def make_inputs_pickle( self ,p_name):
+    from root_numpy import root2array
+    import numpy as np
+
+    if self.is_weight:
+      branches = self.brs + [self.weight_name]
+    else:
+      branches = self.brs
+   
+    _root2array = partial( root2array,
+        filenames=self.input_file, branches = branches)
+    
+    sig_train = _root2array(treename=self.t_sig_train,selection=self.train_sel) 
+    bkg_train = _root2array(treename=self.t_bkg_train,selection=self.train_sel) 
+    sig_test  = _root2array(treename=self.t_sig_test,selection=self.test_sel) 
+    bkg_test  = _root2array(treename=self.t_bkg_test,selection=self.test_sel) 
+
+    sig_val,sig_test = np.split(sig_test,[len(sig_test)/2])
+    bkg_val,bkg_test = np.split(bkg_test,[len(bkg_test)/2])
+
+    _split_arrays = partial(self.split_arrays,
+        branches=self.brs,is_weight=self.is_weight,weight_name=self.weight_name)
+
+
+    train = _split_arrays(sig_train,bkg_train)
+    val   = _split_arrays(sig_val,bkg_val)
+    test  = _split_arrays(sig_test,bkg_test)
+
+    with open(p_name,'wb') as f:
+      data = {
+        'train':train,
+        'val'  :val,
+        'test' :test,
+      }
+      pickle.dump(data,f) 
+
+
+
+  @muter('Preprocessing inputs...','Finished preprocessing') 
+  def preprocess_data(self,write_scaler=True):
+
+    import utils
+    from root_numpy import rec2array
+
+    if not self.scale:
+      self.train = rec2array(self.train)
+      self.test  = rec2array(self.test)
+      self.val   = rec2array(self.val)
+
+    else:
+      scalers     = utils.getScalers(self.train,self.brs)
+      scaleSample = composer(rec2array)(utils.scaleSample)
+
+      self.train   = scaleSample(self.train, scalers)
+      self.test    = scaleSample(self.test, scalers)
+      self.val     = scaleSample(self.val, scalers)
+
+      json_path = './results/{0:}/'.format(self.runtag)
+      json_file = 'scale_{0:}_{1:}.json'.format(self.runtag,self.train_tag)
+
+      scale_info = {}
+      for b in self.brs:
+
+        offset = 0. - scalers[b].mean_
+        scale  = 1./scalers[b].scale_
+
+        scale_info[b] = {'offset':offset, 'scale':scale}
+
+      if not os.path.isdir(json_path):
+        os.system('mkdir -p {0:}'.format(json_path))
+
+      if not os.path.isfile(json_path+json_file):
+        with open(json_path+json_file,'w') as f:
+          json.dump(scale_info,f,indent=2)
+          print (json_path+json_file + '  Generated!')
+          
     return
 
-  def reverse_input(self):
-    self.reverse_input_structure('train')
-    self.reverse_input_structure('test')
-    self.reverse_input_structure('val')
-      
+  def fill_data(self):
+    p_name = './data/data_{0:}.pickle'.format(self.train_tag)
 
+    try:
+      with open( p_name ) as f:
+        data = pickle.load(f)
+    except:
+      self.make_inputs_pickle( p_name ) 
+      with open( p_name ) as f:
+        data = pickle.load(f)
+
+    self.book_numpy_array(data)
+
+    self.preprocess_data()
+
+  def book_numpy_array(self,data):
+    for key,value in data.iteritems():
+      setattr(self, key,           value[0])
+      setattr(self, key+'_cat',    value[1])
+      setattr(self, key+'_weight', value[2])
+
+  def print(self,*args,**kw):
+    sys.stdout,current_stdout = self.stdout,sys.stdout
+    print(*args,**kw)
+    sys.stdout = current_stdout
+
+
+    
+  def initialize_training(self):
+    print ('start training on {0:} {1:}'.format(self.runtag,self.train_tag))
+
+    output_dir = './results/{0:}'.format(self.runtag)
+    if not os.path.isdir(output_dir):
+      print ('dir not exists, mkdir!')
+      os.system('mkdir -p {0:}'.format(output_dir))
+      
+    log = open('{0:}/{1:}.log'.format(output_dir,self.train_tag),'w')
+    err = open('{0:}/{1:}.err'.format(output_dir,self.train_tag),'w')
+
+    sys.stdout,self.stdout = log,sys.stdout
+    sys.stderr,self.stderr = log,sys.stderr
+
+
+  def finalize_training(self):
+    sys.stdout = self.stdout
+    sys.stderr = self.stderr
+    print( 'ended training on {0:}, {1:} !'.format(self.runtag,self.train_tag))
+
+    
   def init_inputs(self):
     self.input_file = '/afs/cern.ch/user/c/chenc/public/forChangqiao/splited_traintest_mva24.root'
+
     self.t_sig_train = 'train_sig'
     self.t_bkg_train = 'train_bkg'
     self.t_sig_test = self.t_sig_train
     self.t_bkg_test = self.t_bkg_train
     
-    self.is_weight = True
+    self.is_weight   = True
     self.weight_name = 'EventWeight'
 
   def init_model(self):
-    self.model = 'model_shallow'
-    self.init_model = (len(self.brs),)
+    self.model = 'model_2_0'
+    self.args_model = (len(self.brs),)
     self.optimizer = 'rmsprop'
     self.loss='binary_crossentropy'
     self.metrics=['accuracy']
@@ -241,9 +261,88 @@ class Cfg:
     self.brs = brancheses[nj]
     self.train_sel = '({0:})&&({1:})'.format(cuts_nj[nj],cuts_parity[parity])
     self.test_sel  = '({0:})&&({1:})'.format(cuts_nj[nj],cuts_parity[(parity+1)%2])
+## Cfg ended ##
 
-  
-  
+def _get_cfg(category,runtag,load_data,model_name,scale=True,):
+
+  cfg = Cfg(category, runtag)
+
+  cfg.model = 'model_{0:}'.format(model_name)
+  cfg.scale = scale
+
+  if load_data:
+    cfg.fill_data()
+
+  return cfg
+
+def setw(*args):
+  def _setw(cfg):
+    cfg.args_model += args
+  return _setw
+
+def get_cfg(category,runtag,load_data=False):
+
+  additional_features = {
+    'test_parallel':{'model_name':'D','callback':setw(32)},
+    
+    'D2'  :{'model_name':'D','callback':setw(2)},  
+    'D4'  :{'model_name':'D','callback':setw(4)},  
+    'D8'  :{'model_name':'D','callback':setw(8)},  
+    'D16' :{'model_name':'D','callback':setw(16)},  
+    'D32' :{'model_name':'D','callback':setw(32)},  
+    'D64' :{'model_name':'D','callback':setw(64)},  
+    'D128':{'model_name':'D','callback':setw(128)},  
+
+    'D8D16'   :{'model_name':'D_D','callback':setw(8,16)},
+    'D16D32'  :{'model_name':'D_D','callback':setw(16,32)},
+    'D32D64'  :{'model_name':'D_D','callback':setw(32,64)},
+    'D64D128' :{'model_name':'D_D','callback':setw(64,128)},
+      
+    
+    'D8D8'    :{'model_name':'D_D','callback':setw(8,8)},
+    'D16D16'  :{'model_name':'D_D','callback':setw(16,16)},
+    'D32D32'  :{'model_name':'D_D','callback':setw(32,32)},
+    'D64D64'  :{'model_name':'D_D','callback':setw(64,64)},
+    'D128D128':{'model_name':'D_D','callback':setw(128,128)},
+
+    'D8D4'   :{'model_name':'D_D','callback':setw(8,4)},
+    'D16D8'  :{'model_name':'D_D','callback':setw(16,8)},
+    'D32D16' :{'model_name':'D_D','callback':setw(32,16)},
+    'D64D32' :{'model_name':'D_D','callback':setw(64,32)},
+    'D128D64':{'model_name':'D_D','callback':setw(128,64)},
+
+    'D8D16D32'    :{'model_name':'D_D_D','callback':setw(8,16,32)},
+    'D16D32D64'   :{'model_name':'D_D_D','callback':setw(16,32,64)},
+    'D32D64D128'  :{'model_name':'D_D_D','callback':setw(32,64,128)},
+    'D64D128D256' :{'model_name':'D_D_D','callback':setw(64,128,256)},
+    'D128D256D512':{'model_name':'D_D_D','callback':setw(128,256,512)},
+      
+    'D8D8D8'      :{'model_name':'D_D_D','callback':setw(8,8,8)},
+    'D16D16D16'   :{'model_name':'D_D_D','callback':setw(16,16,16)},
+    'D32D32D32'   :{'model_name':'D_D_D','callback':setw(32,32,32)},
+    'D64D64D64'   :{'model_name':'D_D_D','callback':setw(64,64,64)},
+    'D128D128D128':{'model_name':'D_D_D','callback':setw(128,128,128)},
+
+    'D8D4D2'    :{'model_name':'D_D_D','callback':setw(8,4,2)},
+    'D16D8D4'   :{'model_name':'D_D_D','callback':setw(16,8,4)},
+    'D32D16D8'  :{'model_name':'D_D_D','callback':setw(32,16,8)},
+    'D64D32D16' :{'model_name':'D_D_D','callback':setw(64,32,16)},
+    'D128D64D32':{'model_name':'D_D_D','callback':setw(128,64,32)},
+    
+    'rnn_test'  :{'model_name':'R_D','callback':setw(32,64)},
+  }
+
+  assert runtag in additional_features
+
+  callback = additional_features[runtag].pop('callback',None)
+
+  cfg = _get_cfg(category,runtag,load_data,**additional_features[runtag])
+
+  if callback != None:
+    callback(cfg)
+
+  return cfg 
+ 
+
 if __name__ == '__main__':
-  cfg = Cfg(3)
-  fill_data( cfg )
+  pass

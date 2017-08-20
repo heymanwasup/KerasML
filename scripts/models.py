@@ -1,9 +1,23 @@
 from keras.models import Model
 from keras.layers import Input, Dense, Activation, Dropout, Masking, LSTM, concatenate
 
-def model_2_0(ndim):
+def model_D(ndim,nwidth):
     m_in = Input(shape=(ndim,))
-    m = Dense(32)(m_in)
+    m = Dense(nwidth)(m_in)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(1)(m)
+    m_out = Activation('sigmoid')(m)
+   
+    model = Model(inputs=m_in, outputs=m_out)
+    return model
+
+def model_D_D(ndim,nw1,nw2):
+    m_in = Input(shape=(ndim,))
+    m = Dense(nw1)(m_in)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(nw2)(m)
     m = Activation('relu')(m)
     m = Dropout(0.2)(m)
     m = Dense(1)(m)
@@ -12,20 +26,15 @@ def model_2_0(ndim):
     model = Model(inputs=m_in, outputs=m_out)
     return model
 
-def model_2_1(ndim):
+def model_D_D_D(ndim,nw1,nw2,nw3):
     m_in = Input(shape=(ndim,))
-    m = Dense(32)(m_in)
+    m = Dense(nw1)(m_in)
     m = Activation('relu')(m)
     m = Dropout(0.2)(m)
-    m = Dense(1)(m)
-    m_out = Activation('softmax')(m)
-
-    model = Model(inputs=m_in, outputs=m_out)
-    return model
-
-def model_2_2(ndim):
-    m_in = Input(shape=(ndim,))
-    m = Dense(16)(m_in)
+    m = Dense(nw2)(m)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(nw3)(m)
     m = Activation('relu')(m)
     m = Dropout(0.2)(m)
     m = Dense(1)(m)
@@ -34,9 +43,18 @@ def model_2_2(ndim):
     model = Model(inputs=m_in, outputs=m_out)
     return model
 
-def model_2_3(ndim):
+def model_D_D_D_D(ndim,nw1,nw2,nw3,nw4):
     m_in = Input(shape=(ndim,))
-    m = Dense(64)(m_in)
+    m = Dense(nw1)(m_in)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(nw2)(m)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(nw3)(m)
+    m = Activation('relu')(m)
+    m = Dropout(0.2)(m)
+    m = Dense(nw4)(m)
     m = Activation('relu')(m)
     m = Dropout(0.2)(m)
     m = Dense(1)(m)
@@ -45,61 +63,20 @@ def model_2_3(ndim):
     model = Model(inputs=m_in, outputs=m_out)
     return model
 
-def model_3_0(ndim):
-    m_in = Input(shape=(ndim,))
-    m = Dense(32)(m_in)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(64)(m)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(1)(m)
-    m_out = Activation('softmax')(m)
-
-    model = Model(inputs=m_in, outputs=m_out)
-    return model
-
-def model_4_0(ndim):
-    m_in = Input(shape=(ndim,))
-    m = Dense(32)(m_in)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(64)(m)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(1)(m)
-    m_out = Activation('softmax')(m)
-
-    model = Model(inputs=m_in, outputs=m_out)
-    return model
 
 
-def model_5_0(ndim):
+def model_R_D(ndim,nr=32,nd=64):
+    print ('in rnn model')
     m_in = Input(shape=(ndim,))
     m = Masking(mask_value=-999)(m_in)
-    m = LSTM(32)(m)
-    m = Dense(64)(m)
+    m = LSTM(nr)(m)
+    m = Dense(nd)(m)
     m = Activation('relu')(m)
     m = Dropout(0.2)(m)
     m = Dense(1)(m)
     m_out = Activation('sigmoid')(m)
 
     model = Model(inputs=m_in, outputs=m_out)
+    print ('out rnn model')
     return model
 
-def model_6_0(ndim):
-    m_in = Input(shape=(ndim,))
-    m = Dense(32)(m_in)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(64)(m)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(64)(m)
-    m = Activation('relu')(m)
-    m = Dropout(0.2)(m)
-    m = Dense(1)(m)
-    m_out = Activation('softmax')(m)
-
-    model = Model(inputs=m_in, outputs=m_out)
-    return model
