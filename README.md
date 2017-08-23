@@ -10,6 +10,14 @@ cd KerasML
 source install.sh
 ```
 
+And since you use "theano" rather than "tensorflow" as default in lxplus, you should modify this file :
+```
+$HOME/.keras/keras.json
+
+Change "backend": “tensorflow”  to  "backend”:”theano”.
+```
+
+
 ### Each time setup on lxplus
 
 ```
