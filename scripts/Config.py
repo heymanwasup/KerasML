@@ -51,13 +51,11 @@ def Launch(fun,args,info=''):
 class Cfg:
   def __init__(self,category,runtag='test'):
 
+    self.category = category
     self.runtag = runtag
+    assert category < 4 and category >= 0,'the category has to be 0-3, but got {0:}'.format(category)
 
-    if category > 4 or category < 0:
-      print ('the category has to be 0-3')
-      raise ValueError
-    else:
-      self.init_cate(category)
+    self.init_cate(category)
 
     self.scale = True
     self.init_inputs()
@@ -90,6 +88,9 @@ class Cfg:
     from root_numpy import root2array
     import numpy as np
 
+    if not os.path.isdir(os.path.dirname(p_name)):
+      os.system('mkdir -p {0:}'.format(os.path.dirname(p_name)))
+
     if self.is_weight:
       branches = self.brs + [self.weight_name]
     else:
@@ -121,7 +122,6 @@ class Cfg:
         'test' :test,
       }
       pickle.dump(data,f) 
-
 
 
   @muter('Preprocessing inputs...','Finished preprocessing') 
@@ -197,7 +197,7 @@ class Cfg:
 
     output_dir = './results/{0:}'.format(self.runtag)
     if not os.path.isdir(output_dir):
-      print ('dir not exists, mkdir!')
+      print ('dir <{0:}> not exists, make it!'.format(output_dir))
       os.system('mkdir -p {0:}'.format(output_dir))
       
     log = open('{0:}/{1:}.log'.format(output_dir,self.train_tag),'w')
@@ -263,7 +263,7 @@ class Cfg:
     self.test_sel  = '({0:})&&({1:})'.format(cuts_nj[nj],cuts_parity[(parity+1)%2])
 ## Cfg ended ##
 
-def _get_cfg(category,runtag,load_data,model_name,scale=True,):
+def _get_cfg(category,runtag,load_data,model_name='',scale=True,):
 
   cfg = Cfg(category, runtag)
 
@@ -279,7 +279,50 @@ def setw(*args):
   def _setw(cfg):
     cfg.args_model += args
   return _setw
+   
+def fixed_opt(cfg):
+  model_name = 'NN'
+  if cfg.category < 2:
+    setw((64,32,16))(cfg)
+  else:
+    setw((32,))(cfg)
+  cfg.model = 'model_{0:}'.format(model_name)
 
+def setloss(loss): 
+  def setl(cfg):
+    fixed_opt(cfg)
+    cfg.loss = loss
+  return setl
+
+def setoptimizer(opt):
+  def setopt(cfg):
+    fixed_opt(cfg)
+    cfg.optimizer = opt
+  return setopt
+
+def setmetrics(metrics):
+  def setmtrix(cfg):
+    fixed_opt(cfg)
+    cfg.metrics = metrics
+  return setmtrix
+
+def setcategorical(cfg):
+  pass
+  #from Keras import 
+
+def get_cfg_xgb(category,runtag,load_data=False):
+
+  param_map = {
+    'bst_test':{'max_depth':2, 'eta':1, 'silent':1, 'objective':'binary:logistic','eval_metric':'auc'}
+  }
+
+  assert runtag in param_map 
+
+  cfg = _get_cfg(category, runtag, load_data, scale=False)
+  cfg.param = param_map[runtag]
+  
+  return cfg
+  
 def get_cfg(category,runtag,load_data=False):
 
   additional_features = {
@@ -330,6 +373,34 @@ def get_cfg(category,runtag,load_data=False):
     'D128D64D32':{'model_name':'D_D_D','callback':setw(128,64,32)},
     
     'rnn_test'  :{'model_name':'R_D','callback':setw(32,64)},
+    'rnn_test_seq'  :{'model_name':'R_D_seq','callback':setw(32,64)},
+
+    'loss_test'       :{'model_name':'NN','callback':setloss('mean_squared_error')},
+    'optimizer_test'  :{'model_name':'NN','callback':setoptimizer('adam')},
+
+    'loss_0'       :{'model_name':'NN','callback':setloss('binary_crossentropy')},
+    'loss_1'       :{'model_name':'NN','callback':setloss('mean_squared_error')},
+    'loss_2'       :{'model_name':'NN','callback':setloss('mean_absolute_error')},
+    'loss_3'       :{'model_name':'NN','callback':setloss('mean_absolute_percentage_error')},
+    'loss_4'       :{'model_name':'NN','callback':setloss('mean_squared_logarithmic_error')},
+    'loss_5'       :{'model_name':'NN','callback':setloss('squared_hinge')},
+    'loss_6'       :{'model_name':'NN','callback':setloss('hinge')},
+    'loss_7'       :{'model_name':'NN','callback':setloss('categorical_hinge')},
+    'loss_8'       :{'model_name':'NN','callback':setloss('logcosh')},
+    'loss_9'       :{'model_name':'NN','callback':setloss('categorical_crossentropy')},
+    'loss_10'      :{'model_name':'NN','callback':setloss('sparse_categorical_crossentropy')},
+    'loss_11'      :{'model_name':'NN','callback':setloss('kullback_leibler_divergence')},
+    'loss_12'      :{'model_name':'NN','callback':setloss('cosine_proximity')},
+    'loss_13'      :{'model_name':'NN','callback':setloss('poisson')},
+
+
+    'optimizer_0'  :{'model_name':'NN','callback':setoptimizer('rmsprop')},
+    'optimizer_1'  :{'model_name':'NN','callback':setoptimizer('adam')},
+    'optimizer_2'  :{'model_name':'NN','callback':setoptimizer('sgd')},
+    'optimizer_3'  :{'model_name':'NN','callback':setoptimizer('adagrad')},
+    'optimizer_4'  :{'model_name':'NN','callback':setoptimizer('adadelta')},
+
+    
   }
 
   assert runtag in additional_features

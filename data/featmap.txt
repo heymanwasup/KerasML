@@ -1,0 +1,10 @@
+0 MET q
+1 HT q
+2 dPhiMETdijet q
+3 pTB1 q
+4 pTB2 q
+5 mBB q
+6 dRBB q
+7 dEtaBB q
+8 pTJ3 q
+9 mBBJ q
