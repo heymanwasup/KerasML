@@ -11,7 +11,7 @@ def train(cfg):
 
   evallist = [(dtrain,'train'), (dtest,'test'), (dval,'val')]
 
-  num_round = 10
+  num_round = 100
   bst = xgb.train( cfg.param, dtrain, num_round, evallist , early_stopping_rounds=10)
 
   model_name = './results/{0:}/%s_{1:}.%s'.format(cfg.runtag,cfg.train_tag)
