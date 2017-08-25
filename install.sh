@@ -1,5 +1,5 @@
 setupATLAS
-lsetup root
+lsetup "gcc gcc493_x86_64_slc6"
 lsetup python
 virtualenv --python=python2.7 ve
 source ve/bin/activate
@@ -7,9 +7,9 @@ source ve/bin/activate
 if [ "$1" = "keras" ];
 then
     echo "installing keras...";
-    pip install pip --upgrade
-    pip install theano keras h5py sklearn matplotlib tabulate
-    pip install --upgrade https://github.com/rootpy/root_numpy/zipball/master
+    pip install  pip --upgrade
+    pip install  theano keras h5py sklearn matplotlib tabulate
+    pip install  --upgrade https://github.com/rootpy/root_numpy/zipball/master
 elif [ "$1" = "xgboost" ];
 then
     echo "installing xgboost...";
